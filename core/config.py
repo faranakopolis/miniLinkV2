@@ -1,20 +1,22 @@
 from pydantic import BaseSettings
 
-from functools import lru_cache
-
 
 class Settings(BaseSettings):
-    app_name: str = "Awesome API"
-    admin_email: str
-    items_per_user: int = 50
+    PROJECT_NAME = 'Mini Link (Exbito)'
+    PROJECT_VERSION = 1.1
+    PROJECT_DESCRIPTION = "A simple but reliable URL shortener :)"
+
+    URL_PREFIX = '/minilink'
+
+    POSTGRES_USER: str
+    POSTGRES_PASSWORD: str
+    POSTGRES_SERVER: str = "localhost"
+    POSTGRES_PORT: str = 5432
+    POSTGRES_DB: str
+    DATABASE_URL = f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_SERVER}:{POSTGRES_PORT}/{POSTGRES_DB}"
 
     class Config:
         env_file = ".env"
 
-#
-# settings = Settings()
-#
-#
-# @lru_cache()
-# def get_settings():
-#     return Settings()
+
+settings = Settings()
