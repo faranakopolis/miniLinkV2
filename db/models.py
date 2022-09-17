@@ -3,7 +3,7 @@ import datetime
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, TIMESTAMP, BigInteger
 from sqlalchemy.orm import relationship
 
-from session import Base
+from .session import Base
 
 
 class Url(Base):
@@ -28,7 +28,7 @@ class Visitor(Base):
     os = Column(String)
     created_at = Column(TIMESTAMP)
 
-    url_visitors = relationship("Item", back_populates="visitor")
+    url_visitors = relationship("UrlVisitor", back_populates="visitor")
 
 
 class UrlVisitor(Base):

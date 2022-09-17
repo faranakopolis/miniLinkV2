@@ -1,13 +1,25 @@
-from fastapi import APIRouter
+import hashlib
+import random
+import string
 
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
+
+from db import models
+from db.session import SessionLocal
 from docs.responses import SUCCESS_GENERATE_SHORT_URL, SUCCESS_DELETE_SHORT_URL, SUCCESS_GET_URL_INFO
+from schemas.url_shcemas import OriginalUrl
 
 url_router = APIRouter()
 
 
-@url_router.get("/")
-async def root():
-    return {"message": "Hello World"}
+# Dependency
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @url_router.post("/url/",
@@ -22,8 +34,31 @@ async def root():
                      }
                  }
                  )
-async def generate_short_url():
-    return {"message": "Hello World"}
+async def generate_short_url(body: OriginalUrl, db: Session = Depends(get_db)):
+    """This function hashes the original URL Using md5.
+                To raise security and getting different short links from same URLs
+                 the hashed string consists:
+                    a random 5 character string +
+                    original URL
+            """
+    mini_link_url = "ml/"
+    random_string = ''.join(random.choices(string.ascii_uppercase +
+                                           string.digits, k=5))
+    # Mix them up
+    mixed_string = random_string + body.original
+
+    result = hashlib.md5(mixed_string.encode())
+
+    # Convert to hex
+    hashed_url = mini_link_url + result.hexdigest()
+
+    # save url in postgres
+    db_url = models.Url(original=body.original,
+                        hashed=hashed_url)
+    db.add(db_url)
+    db.commit()
+
+    return {"short_url": hashed_url}
 
 
 @url_router.delete("/url/",
