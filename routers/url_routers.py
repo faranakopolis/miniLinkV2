@@ -4,6 +4,7 @@ import string
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from starlette.responses import JSONResponse
 
 from db import models
 from db.session import SessionLocal
@@ -63,7 +64,9 @@ async def generate_short_url(body: OriginalUrl, db: Session = Depends(get_db)):
     redis_client = redis_connect()
     redis_client.set(hashed_url, body.original)
 
-    return {"short_url": hashed_url}
+    return JSONResponse(status_code=200,
+                        content={"short_url": hashed_url})
+
 
 @url_router.delete("/url/",
                    tags=["delete_short_url"],
@@ -77,8 +80,17 @@ async def generate_short_url(body: OriginalUrl, db: Session = Depends(get_db)):
                        }
                    }
                    )
-async def delete_short_url(hashed_url: str):
-    return {"message": "Hello World"}
+async def delete_short_url(hashed_url: str, db: Session = Depends(get_db)):
+    # set is_active flag to False in postgres
+    db_url = db.query(models.Url).filter(models.Url.hashed == hashed_url).one_or_none()
+    if not db_url:
+        return None
+    db_url.is_active = False
+    db.add(db_url)
+    db.commit()
+
+    return JSONResponse(status_code=200,
+                        content={"message": "deleted"})
 
 
 @url_router.get("/url/",
@@ -93,5 +105,39 @@ async def delete_short_url(hashed_url: str):
                     }
                 }
                 )
-async def get_url_info(hashed_url: str = None):
-    return {"message": "Hello World"}
+async def get_url_info(hashed_url: str = None,
+                       offset: int = 0,
+                       limit: int = 100,
+                       db: Session = Depends(get_db)):
+    if hashed_url:
+        db_url = db.query(models.Url).filter(models.Url.hashed == hashed_url).one_or_none()
+        url_visitors = db.query(models.UrlVisitor).filter(models.UrlVisitor.url == db_url).all()
+        url_info = {"original": db_url.original,
+                    "hashed": db_url.hashed,
+                    "is_active": db_url.is_active,
+                    "created_at": str(db_url.created_at),
+                    "statistics": [{"ip": uv.visitor.ip,
+                                    "device": uv.visitor.device,
+                                    "browser": uv.visitor.browser,
+                                    "os": uv.visitor.os,
+                                    "visited_at": uv.created_at} for uv in url_visitors]}
+        return JSONResponse(status_code=200,
+                            content={"url": url_info})
+
+    urls_info = []
+    db_urls = db.query(models.Url).offset(offset).limit(limit).all()
+
+    for i, url in enumerate(db_urls):
+        url_visitors = db.query(models.UrlVisitor).filter(models.UrlVisitor.url == url).all()
+        urls_info.append({"original": url.original,
+                          "hashed": url.hashed,
+                          "is_active": url.is_active,
+                          "created_at": str(url.created_at),
+                          "statistics": [{"ip": uv.visitor.ip,
+                                          "device": uv.visitor.device,
+                                          "browser": uv.visitor.browser,
+                                          "os": uv.visitor.os,
+                                          "visited_at": uv.created_at} for uv in url_visitors]})
+
+    return JSONResponse(status_code=200,
+                        content={"urls": urls_info})
