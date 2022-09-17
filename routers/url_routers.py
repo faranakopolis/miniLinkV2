@@ -9,6 +9,7 @@ from db import models
 from db.session import SessionLocal
 from docs.responses import SUCCESS_GENERATE_SHORT_URL, SUCCESS_DELETE_SHORT_URL, SUCCESS_GET_URL_INFO
 from schemas.url_shcemas import OriginalUrl
+from redis_driver.redis import redis_connect
 
 url_router = APIRouter()
 
@@ -58,8 +59,11 @@ async def generate_short_url(body: OriginalUrl, db: Session = Depends(get_db)):
     db.add(db_url)
     db.commit()
 
-    return {"short_url": hashed_url}
+    # save url in redis
+    redis_client = redis_connect()
+    redis_client.set(hashed_url, body.original)
 
+    return {"short_url": hashed_url}
 
 @url_router.delete("/url/",
                    tags=["delete_short_url"],
