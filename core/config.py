@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     REDIS_DB: int = 0
 
     class Config:
-        env_file = ".env"
+        env_file = "./.env"
 
 
 settings = Settings()

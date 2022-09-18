@@ -1,13 +1,14 @@
 import hashlib
 import random
 import string
+from typing import Union
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request, Header, BackgroundTasks
 from sqlalchemy.orm import Session
-from starlette.responses import JSONResponse
+from starlette.responses import JSONResponse, RedirectResponse
 
 from db import models
-from db.session import SessionLocal
+from db.session import get_db, SessionLocal
 from docs.responses import SUCCESS_GENERATE_SHORT_URL, SUCCESS_DELETE_SHORT_URL, SUCCESS_GET_URL_INFO
 from schemas.url_shcemas import OriginalUrl
 from redis_driver.redis import redis_connect
@@ -15,13 +16,39 @@ from redis_driver.redis import redis_connect
 url_router = APIRouter()
 
 
-# Dependency
-def get_db():
+def store_guest_url_info(guest_url_info, hashed_url):
+    """Parsing the data and separating its different models
+        to store in the tables below:
+        - guest
+        - guest_url
+    """
     db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+    db_url = db.query(models.Url).filter(models.Url.hashed == hashed_url).one_or_none()
+
+    # Check if a visitor exists in the db or not
+    db_visitor = db.query(models.Visitor).filter(models.Visitor.ip == guest_url_info['ip'],
+                                                 models.Visitor.os == guest_url_info['os'],
+                                                 models.Visitor.device == guest_url_info['device'],
+                                                 models.Visitor.browser == guest_url_info['browser']).one_or_none()
+
+    if db_visitor:
+        # Just add data to the guest_url table
+        url_visitor = models.UrlVisitor(url=db_url,
+                                        visitor=db_visitor)
+        db.add(url_visitor)
+        db.commit()
+    else:
+        # This visitor(guest) is new, add it to its table too
+        new_visitor = models.Visitor(ip=guest_url_info['ip'],
+                                     device=guest_url_info['device'],
+                                     os=guest_url_info['os'],
+                                     browser=guest_url_info['browser'])
+        db.add(new_visitor)
+        db.commit()
+        url_visitor = models.UrlVisitor(url=db_url,
+                                        visitor=db_visitor)
+        db.add(url_visitor)
+        db.commit()
 
 
 @url_router.post("/url/",
@@ -63,6 +90,7 @@ async def generate_short_url(body: OriginalUrl, db: Session = Depends(get_db)):
     # save url in redis
     redis_client = redis_connect()
     redis_client.set(hashed_url, body.original)
+    redis_client.save()
 
     return JSONResponse(status_code=200,
                         content={"short_url": hashed_url})
@@ -141,3 +169,41 @@ async def get_url_info(hashed_url: str = None,
 
     return JSONResponse(status_code=200,
                         content={"urls": urls_info})
+
+
+@url_router.get("/ml/{hashed}",
+                tags=["redirect_visitor"],
+                responses={
+                    200: {'description': 'The visitor redirected successfully.'
+                          },
+                    500: {
+                        'description': 'Server failed to redirect.'
+                    }
+                }
+                )
+async def redirect_visitor(hashed: str,
+                           fast_request: Request,
+                           background_tasks: BackgroundTasks,
+                           user_agent: Union[str, None] = Header(default=None),
+                           db: Session = Depends(get_db), ):
+    hashed_url = "ml/" + hashed
+
+    # get visitor info
+    # Get User IP using the request's META data
+    guest_info = dict()
+    user_agent = user_agent.split()
+    guest_info['ip'] = fast_request.client.host
+    guest_info['os'] = user_agent[1]
+    guest_info['browser'] = user_agent[0] + user_agent[-1]
+    guest_info['device'] = user_agent[1]  # not sure if its a good thing to do
+
+    # This function will be running in the background using Celery.
+    # So visitor will be redirected to the original URL ASAP.
+    background_tasks.add_task(store_guest_url_info, guest_info, hashed_url)
+
+    redis_client = redis_connect()
+    # Converting Byte to String
+    original_url = str(redis_client.get(hashed_url), 'utf-8')
+    response = RedirectResponse(url=original_url)
+
+    return response

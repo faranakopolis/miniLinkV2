@@ -15,7 +15,7 @@ class Url(Base):
     created_at = Column(TIMESTAMP, default=datetime.datetime.now())
     is_active = Column(Boolean, default=True)
 
-    url_visitors = relationship("UrlVisitor", back_populates="url")
+    url_visitors_url = relationship("UrlVisitor", back_populates="url")
 
 
 class Visitor(Base):
@@ -26,9 +26,9 @@ class Visitor(Base):
     device = Column(String)
     browser = Column(String)
     os = Column(String)
-    created_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, default=datetime.datetime.now())
 
-    url_visitors = relationship("UrlVisitor", back_populates="visitor")
+    url_visitors_visitor = relationship("UrlVisitor", back_populates="visitor")
 
 
 class UrlVisitor(Base):
@@ -37,7 +37,7 @@ class UrlVisitor(Base):
     id = Column(BigInteger, primary_key=True, index=True)
     url_id = Column(BigInteger, ForeignKey("url.id"))
     visitor_id = Column(BigInteger, ForeignKey("visitor.id"))
-    created_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, default=datetime.datetime.now())
 
-    url = relationship("Url", back_populates="url_visitors")
-    visitor = relationship("Visitor", back_populates="url_visitors")
+    url = relationship("Url", back_populates="url_visitors_url")
+    visitor = relationship("Visitor", back_populates="url_visitors_visitor")
