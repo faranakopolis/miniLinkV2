@@ -1,5 +1,4 @@
 import datetime
-
 from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, TIMESTAMP, BigInteger
 from sqlalchemy.orm import relationship
 

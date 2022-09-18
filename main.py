@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+
 from core.config import settings
 from db.session import engine, Base
 from routers.url_routers import url_router
