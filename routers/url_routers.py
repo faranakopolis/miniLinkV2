@@ -16,7 +16,6 @@ from docs.responses import SUCCESS_GENERATE_SHORT_URL, SUCCESS_DELETE_SHORT_URL,
 from redis_driver.connector import set_url, delete_url, get_original_url
 from routers.router_helper import store_guest_url_info
 from schemas.url_shcemas import OriginalUrl
-from redis_driver.redis import redis_connect
 
 url_router = APIRouter()
 
@@ -147,20 +146,21 @@ async def delete_short_url(hashed_url: str, db: Session = Depends(get_db)):
                                 "message": "The Short URL is inactivated successfully.",
                                 "data": {}
                             })
-    except Exception as e:
-        return JSONResponse(status_code=500,
-                            content={
-                                "error_code": -1,
-                                "success": False,
-                                "message": "Server failed to delete the requested URL.",
-                                "data": {}
-                            })
     except IntegrityError:
         return JSONResponse(status_code=503,
                             content={
                                 "error_code": -3,
                                 "success": False,
                                 "message": "Postgres failed to delete the requested url.",
+                                "data": {}
+                            })
+
+    except Exception as e:
+        return JSONResponse(status_code=500,
+                            content={
+                                "error_code": -1,
+                                "success": False,
+                                "message": "Server failed to delete the requested URL.",
                                 "data": {}
                             })
 
@@ -189,11 +189,19 @@ async def get_url_info(hashed_url: str = None,
     try:
         if hashed_url:  # Client requested for one url info
             db_url = db.query(models.Url).filter(models.Url.hashed == hashed_url).one_or_none()
+            if not db_url:
+                return JSONResponse(status_code=404,
+                                    content={
+                                        "error_code": -2,
+                                        "success": False,
+                                        "message": "Requested URL does not found or has been deleted before.",
+                                        "data": {}
+                                    })
             url_visitors = db.query(models.UrlVisitor).filter(models.UrlVisitor.url == db_url).all()
             url_info = {"original": db_url.original,
                         "hashed": db_url.hashed,
                         "is_active": db_url.is_active,
-                        "created_at": str(db_url.created_at),
+                        "created_at": str(db_url.created_at).split(".")[0],
                         "statistics": [{"ip": uv.visitor.ip,
                                         "device": uv.visitor.device,
                                         "browser": uv.visitor.browser,
@@ -220,7 +228,7 @@ async def get_url_info(hashed_url: str = None,
                                               "device": uv.visitor.device,
                                               "browser": uv.visitor.browser,
                                               "os": uv.visitor.os,
-                                              "visited_at": str(uv.created_at)} for uv in url_visitors]})
+                                              "visited_at": str(uv.created_at).split(".")[0]} for uv in url_visitors]})
 
         return JSONResponse(status_code=200,
                             content={
@@ -240,7 +248,7 @@ async def get_url_info(hashed_url: str = None,
                             })
 
 
-@url_router.get("/ml/{hashed}",
+@url_router.get("/ml/{hashed_string}",
                 tags=["redirect_visitor"],
                 responses={
                     307: {'description': 'The visitor redirected successfully.'
@@ -272,7 +280,7 @@ async def redirect_visitor(hashed_string: str,
 
         # Get the original URL from Redis
         original_url = get_original_url(hashed_url)
-        if not original_url:
+        if original_url is False:
             return JSONResponse(status_code=503,
                                 content={
                                     "error_code": -3,
@@ -280,7 +288,14 @@ async def redirect_visitor(hashed_string: str,
                                     "message": "Redis failed to get a key.",
                                     "data": {}
                                 })
-
+        if original_url is None:
+            return JSONResponse(status_code=404,
+                                content={
+                                    "error_code": -2,
+                                    "success": False,
+                                    "message": "Requested URL does not found or has been deleted before.",
+                                    "data": {}
+                                })
         response = RedirectResponse(url=original_url)
 
         return response

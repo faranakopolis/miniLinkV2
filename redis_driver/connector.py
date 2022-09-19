@@ -24,11 +24,14 @@ def delete_url(hashed_url: str) -> bool:
         return False
 
 
-def get_original_url(hashed_url: str) -> Union[str, None]:
+def get_original_url(hashed_url: str) -> Union[str, None, bool]:
     try:
         redis_client = redis_connect()
         # Converting Byte to String
-        original_url = str(redis_client.get(hashed_url), 'utf-8')
+        original_url = redis_client.get(hashed_url)
+        if original_url is None:
+            return None
+        original_url = str(original_url, 'utf-8')
         return original_url
     except Exception:
-        return None
+        return False

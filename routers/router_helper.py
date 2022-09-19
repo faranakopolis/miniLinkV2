@@ -10,7 +10,8 @@ def store_guest_url_info(visitor_info, hashed_url):
     """
     db = SessionLocal()
     db_url = db.query(models.Url).filter(models.Url.hashed == hashed_url).one_or_none()
-
+    if not db_url:
+        return None
     # Check if the visitor exists in the table or not
     db_visitor = db.query(models.Visitor).filter(models.Visitor.ip == visitor_info['ip'],
                                                  models.Visitor.os == visitor_info['os'],
