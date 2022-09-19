@@ -2,6 +2,15 @@
 
 The idea is a program that makes your URLs shorter. Basically, you enter a URL and receive a short version of it.
 
+In order to start the project, run the following command in the main directory:
+
+`uvicorn main:app --reload`
+
+and to read the APIs document go to: `host:port/minilink/docs/`
+
+To run the tests use this command: `python -m pytest`
+
+
 Mini Link has the following APIs:
 
 #### Generate short URL: 
