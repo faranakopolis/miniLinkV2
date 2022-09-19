@@ -2,6 +2,8 @@
 
 The idea is a program that makes your URLs shorter. Basically, you enter a URL and receive a short version of it.
 
+######_(You can check out the [other version of this project](https://github.com/maripillon/MiniLink/) which I did a year ago using Django and celery)_
+
 In order to start the project, run the following command in the main directory:
 
 `uvicorn main:app --reload`
@@ -11,7 +13,7 @@ and to read the APIs document go to: `host:port/minilink/docs/`
 To run the tests use this command: `python -m pytest`
 
 
-Mini Link has the following APIs:
+###Mini Link has the following APIs:
 
 #### Generate short URL: 
 Using md5 hash function, this API gives you a unique yet short URL based on the original one.
@@ -34,9 +36,7 @@ As the main API of the Mini Link, it's responsible for redirecting the user from
 
 ### Behind the Scenes
 Having in mind that our project doesn't involve OOP and the performance is the main goal
-I chose FastAPI over Django
-
-_(you can check my [old version of this project](https://github.com/maripillon/MiniLink/) which I did a year ago with Django and celery)_
+I chose FastAPI over Django.
 
 
 In my opinion, the first step of the system design is designing its database.
