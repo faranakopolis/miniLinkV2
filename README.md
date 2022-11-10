@@ -42,7 +42,7 @@ I chose FastAPI over Django.
 In my opinion, the first step of the system design is designing its database.
 Based on Url and Visitor which are two entities of our system, I
 considered an RDB (here I utilized from PostgreSQL) and designed an ERD for it:
-<img src="https://i.ibb.co/prkKt3M/Mini-Link-exbito-db.jpg?raw=true" width="800" height="550">
+<img height="550" src="..\miniLink_exbito\files\MiniLink_exbito_db.jpg" width="800"/>
 
 Then I realized the most requested API among all APIs is `Redirecting` and 
 knowing that redirecting is a simple key value like hashed_url -> original_url
